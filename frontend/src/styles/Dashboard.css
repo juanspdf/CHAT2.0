@@ -1,0 +1,97 @@
+.dashboard-container {
+  padding: 40px 20px;
+}
+
+.dashboard-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 30px;
+  flex-wrap: wrap;
+  gap: 20px;
+}
+
+.dashboard-header h1 {
+  font-size: 32px;
+  color: #333;
+  margin-bottom: 5px;
+}
+
+.welcome-text {
+  color: #666;
+  font-size: 16px;
+}
+
+.actions {
+  margin: 20px 0;
+}
+
+.form-card {
+  background: #f8f9fa;
+  margin: 20px 0;
+}
+
+.form-card h2 {
+  color: #333;
+  margin-bottom: 20px;
+}
+
+.rooms-section {
+  margin-top: 40px;
+}
+
+.rooms-section h2 {
+  color: #333;
+  margin-bottom: 20px;
+}
+
+.no-rooms {
+  text-align: center;
+  color: #666;
+  padding: 40px;
+  font-style: italic;
+}
+
+.badge {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.badge-text {
+  background: #e3f2fd;
+  color: #1976d2;
+}
+
+.badge-multimedia {
+  background: #f3e5f5;
+  color: #7b1fa2;
+}
+
+.badge-active {
+  background: #e8f5e9;
+  color: #2e7d32;
+}
+
+.badge-closed {
+  background: #ffebee;
+  color: #c62828;
+}
+
+.btn-small {
+  padding: 6px 12px;
+  font-size: 14px;
+}
+
+@media (max-width: 768px) {
+  .table {
+    font-size: 14px;
+  }
+  
+  .table th,
+  .table td {
+    padding: 8px;
+  }
+}
