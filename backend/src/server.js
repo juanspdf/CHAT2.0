@@ -7,6 +7,7 @@ const helmet = require('helmet');
 const path = require('path');
 const connectDB = require('./utils/database');
 const SocketService = require('./services/socketService');
+const redisService = require('./services/redisService');
 
 // Importar rutas
 const adminRoutes = require('./routes/admin');
@@ -14,6 +15,11 @@ const roomRoutes = require('./routes/rooms');
 
 // Conectar a MongoDB
 connectDB();
+
+// Conectar a Redis (opcional, no bloqueante)
+redisService.connect().catch(err => {
+  console.warn('⚠️ Continuando sin Redis:', err.message);
+});
 
 // Crear app Express
 const app = express();
@@ -101,3 +107,5 @@ setInterval(async () => {
 }, 5 * 60 * 1000); // Ejecutar cada 5 minutos
 
 module.exports = { app, server, io };
+
+

@@ -32,13 +32,12 @@ class SocketService {
     }
   }
 
-  joinRoom(roomCode, pin, nickname, deviceId) {
+  joinRoom(roomCode, pin, nickname) {
     if (this.socket) {
       this.socket.emit('join_room', {
         roomCode,
         pin,
-        nickname,
-        deviceId
+        nickname
       });
     }
   }

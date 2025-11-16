@@ -200,6 +200,63 @@
   color: rgba(255, 255, 255, 0.8);
 }
 
+/* Mensajes multimedia */
+.message-image,
+.message-video,
+.message-audio {
+  background: white;
+  padding: 10px;
+  border-radius: 12px;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+  max-width: 100%;
+}
+
+.message-own .message-image,
+.message-own .message-video,
+.message-own .message-audio {
+  background: rgba(255, 255, 255, 0.95);
+}
+
+.message-image img {
+  max-width: 100%;
+  max-height: 400px;
+  border-radius: 8px;
+  cursor: pointer;
+  display: block;
+  transition: transform 0.2s, opacity 0.2s;
+}
+
+.message-image img:hover {
+  transform: scale(1.02);
+  opacity: 0.9;
+}
+
+.message-video video {
+  max-width: 100%;
+  max-height: 400px;
+  border-radius: 8px;
+  display: block;
+}
+
+.message-audio audio {
+  width: 100%;
+  max-width: 300px;
+  margin: 5px 0;
+}
+
+.file-name {
+  display: block;
+  margin-top: 8px;
+  color: #666;
+  font-size: 12px;
+  text-align: center;
+  word-break: break-all;
+}
+
+.message-own .file-name {
+  color: #555;
+}
+
 /* Input de mensaje */
 .message-input-container {
   border-top: 1px solid #e0e0e0;

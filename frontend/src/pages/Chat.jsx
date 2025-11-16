@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import socketService from '../services/socket';
 import { roomAPI } from '../services/api';
-import { getDeviceId, formatDate, formatFileSize } from '../utils/helpers';
+import { formatDate, formatFileSize } from '../utils/helpers';
 import '../styles/Chat.css';
 
 function Chat() {
@@ -16,6 +16,7 @@ function Chat() {
   
   const messagesEndRef = useRef(null);
   const fileInputRef = useRef(null);
+  const hasJoinedRef = useRef(false); // Guard para prevenir múltiples llamadas
   const navigate = useNavigate();
 
   const currentUser = JSON.parse(localStorage.getItem('currentRoom') || '{}');
@@ -27,9 +28,15 @@ function Chat() {
       return;
     }
 
+    // Prevenir múltiples llamadas a joinRoom
+    if (hasJoinedRef.current) {
+      console.log('⚠️ Ya se intentó unir a la sala, ignorando duplicado');
+      return;
+    }
+    hasJoinedRef.current = true;
+
     // Conectar socket
     const socket = socketService.connect();
-    const deviceId = getDeviceId();
 
     // Event listeners
     const handleJoinedRoom = (data) => {
@@ -50,7 +57,8 @@ function Chat() {
       
       if (data.errorCode === 'ALREADY_IN_ROOM' || 
           data.errorCode === 'INVALID_PIN' ||
-          data.errorCode === 'ROOM_NOT_FOUND') {
+          data.errorCode === 'ROOM_NOT_FOUND' ||
+          data.errorCode === 'SESSION_REPLACED') {
         setTimeout(() => navigate('/join'), 3000);
       }
     };
@@ -92,8 +100,8 @@ function Chat() {
     socket.on('user_joined', handleUserJoined);
     socket.on('user_left', handleUserLeft);
 
-    // Unirse a la sala
-    socketService.joinRoom(roomCode, pin, nickname, deviceId);
+    // Unirse a la sala (el backend ahora maneja el deviceId automáticamente)
+    socketService.joinRoom(roomCode, pin, nickname);
 
     // Cleanup
     return () => {
@@ -103,7 +111,10 @@ function Chat() {
       socket.off('messages_history', handleMessagesHistory);
       socket.off('user_joined', handleUserJoined);
       socket.off('user_left', handleUserLeft);
-      socketService.disconnect();
+      // Resetear el flag cuando el componente se desmonta
+      hasJoinedRef.current = false;
+      // NO desconectar el socket aquí - solo remover listeners
+      // El socket se desconectará automáticamente cuando el usuario cierre la pestaña
     };
   }, [roomCode, pin, nickname, navigate]);
 
@@ -164,21 +175,61 @@ function Chat() {
     const isOwnMessage = msg.nickname === nickname;
 
     if (msg.type === 'FILE') {
+      const isImage = msg.fileMimeType?.startsWith('image/');
+      const isVideo = msg.fileMimeType?.startsWith('video/');
+      const isAudio = msg.fileMimeType?.startsWith('audio/');
+      const fileUrl = `http://localhost:5000${msg.fileUrl}`;
+
       return (
         <div key={msg.messageId || index} className={`message ${isOwnMessage ? 'message-own' : 'message-other'}`}>
           <div className="message-header">
             <strong>{msg.nickname}</strong>
             <span className="message-time">{formatDate(msg.createdAt)}</span>
           </div>
-          <div className="message-file">
-            <div className="file-icon">📎</div>
-            <div className="file-info">
-              <a href={msg.fileUrl} target="_blank" rel="noopener noreferrer">
-                {msg.content}
-              </a>
-              <small>{formatFileSize(msg.fileSizeBytes)}</small>
+          
+          {isImage && (
+            <div className="message-image">
+              <img 
+                src={fileUrl} 
+                alt={msg.content}
+                loading="lazy"
+                onClick={() => window.open(fileUrl, '_blank')}
+              />
+              <small className="file-name">{msg.content}</small>
             </div>
-          </div>
+          )}
+
+          {isVideo && (
+            <div className="message-video">
+              <video controls width="100%">
+                <source src={fileUrl} type={msg.fileMimeType} />
+                Tu navegador no soporta videos.
+              </video>
+              <small className="file-name">{msg.content}</small>
+            </div>
+          )}
+
+          {isAudio && (
+            <div className="message-audio">
+              <audio controls>
+                <source src={fileUrl} type={msg.fileMimeType} />
+                Tu navegador no soporta audio.
+              </audio>
+              <small className="file-name">{msg.content}</small>
+            </div>
+          )}
+
+          {!isImage && !isVideo && !isAudio && (
+            <div className="message-file">
+              <div className="file-icon">📎</div>
+              <div className="file-info">
+                <a href={fileUrl} target="_blank" rel="noopener noreferrer">
+                  {msg.content}
+                </a>
+                <small>{formatFileSize(msg.fileSizeBytes)}</small>
+              </div>
+            </div>
+          )}
         </div>
       );
     }
