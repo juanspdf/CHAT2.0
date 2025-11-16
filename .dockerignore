@@ -1,0 +1,52 @@
+# Node modules (IMPORTANTE: no copiar al contenedor)
+**/node_modules
+**/npm-debug.log
+package-lock.json
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Git
+.git
+.gitignore
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+logs
+*.log
+
+# Testing
+coverage
+.nyc_output
+
+# Build outputs
+dist
+build
+
+# Temporary files
+tmp
+temp
+*.tmp
+
+# Documentation
+README.md
+ARCHITECTURE.md
+DEPLOYMENT.md
+REDIS.md
+*.md
+
+# Docker
+Dockerfile
+docker-compose.yml
+.dockerignore
