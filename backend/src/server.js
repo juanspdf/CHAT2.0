@@ -139,9 +139,9 @@ app.set('io', io);
 
 // Rutas
 app.use('/api/admin', adminRoutes);
-app.use('/api/rooms', roomRoutes);
-app.use('/api/2fa', twoFactorRoutes);
-app.use('/api/auth', authRoutes);
+app.use('/api/rooms', adminRoutes);
+app.use('/api/2fa', adminRoutes);
+app.use('/api/auth', adminRoutes);
 
 // Ruta de health check
 app.get('/health', (req, res) => {
