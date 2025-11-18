@@ -7,16 +7,30 @@ class RedisService {
   }
 
   async connect() {
+    // Verificar si Redis está habilitado
+    if (process.env.REDIS_ENABLED === 'false') {
+      console.log('ℹ️  Redis deshabilitado - usando solo MongoDB');
+      this.connected = false;
+      return null;
+    }
+
     try {
       this.client = new Redis({
         host: process.env.REDIS_HOST || 'localhost',
         port: process.env.REDIS_PORT || 6379,
         password: process.env.REDIS_PASSWORD || undefined,
+        lazyConnect: true,
         retryStrategy: (times) => {
-          const delay = Math.min(times * 50, 2000);
-          return delay;
+          if (times > 2) {
+            console.log('⚠️  Redis no disponible - usando solo MongoDB');
+            return null;
+          }
+          return null; // No reintentar
         },
-        maxRetriesPerRequest: 3
+        maxRetriesPerRequest: 1,
+        enableReadyCheck: false,
+        showFriendlyErrorStack: false,
+        connectTimeout: 1000
       });
 
       this.client.on('connect', () => {
@@ -25,20 +39,23 @@ class RedisService {
       });
 
       this.client.on('error', (err) => {
-        console.error('❌ Error en Redis:', err.message);
+        // Silenciar todos los errores de conexión
         this.connected = false;
       });
 
       this.client.on('close', () => {
-        console.log('🔌 Redis desconectado');
         this.connected = false;
       });
 
-      // Esperar a que se conecte
-      await this.client.ping();
+      // Intentar conectar con timeout corto
+      await Promise.race([
+        this.client.connect(),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 1000))
+      ]);
+      
       return this.client;
     } catch (error) {
-      console.warn('⚠️ Redis no disponible, usando solo MongoDB:', error.message);
+      // Silenciar errores, simplemente no usar Redis
       this.connected = false;
       return null;
     }
@@ -139,9 +156,13 @@ class RedisService {
   }
 
   async disconnect() {
-    if (this.client) {
-      await this.client.quit();
-      this.connected = false;
+    if (this.client && this.connected) {
+      try {
+        await this.client.quit();
+        this.connected = false;
+      } catch (err) {
+        // Ignorar errores al desconectar (conexión ya cerrada)
+      }
     }
   }
 }

@@ -12,6 +12,19 @@ const adminSchema = new mongoose.Schema({
     type: String,
     required: true
   },
+  // 2FA (Two-Factor Authentication)
+  twoFactorSecret: {
+    type: String,
+    default: null
+  },
+  twoFactorEnabled: {
+    type: Boolean,
+    default: false
+  },
+  backupCodes: {
+    type: [String],
+    default: []
+  },
   createdAt: {
     type: Date,
     default: Date.now

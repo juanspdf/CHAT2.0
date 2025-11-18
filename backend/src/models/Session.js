@@ -11,10 +11,29 @@ const sessionSchema = new mongoose.Schema({
     required: true,
     index: true
   },
+  // Fingerprint completo del dispositivo
+  deviceFingerprint: {
+    type: String,
+    required: true,
+    index: true
+  },
+  ipAddress: {
+    type: String,
+    required: true
+  },
+  userAgentHash: {
+    type: String,
+    required: true
+  },
   nickname: {
     type: String,
     required: true,
     trim: true
+  },
+  // Nickname hasheado para mostrar en frontend (privacidad)
+  nicknameHash: {
+    type: String,
+    required: true
   },
   socketId: {
     type: String,
@@ -37,6 +56,7 @@ const sessionSchema = new mongoose.Schema({
 
 // Index compuesto para búsquedas rápidas
 sessionSchema.index({ deviceId: 1, isActive: 1 });
+sessionSchema.index({ deviceFingerprint: 1, isActive: 1 });
 sessionSchema.index({ roomId: 1, isActive: 1 });
 
 module.exports = mongoose.model('Session', sessionSchema);

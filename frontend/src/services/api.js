@@ -1,13 +1,23 @@
 import axios from 'axios';
+import tokenService from './tokenService';
 
 // Obtener la IP del host actual (funciona en PC y móvil)
 const getApiUrl = () => {
   // Si estás en desarrollo local, usa localhost
   // Si accedes desde otro dispositivo, usa la IP de tu PC
   const host = window.location.hostname;
-  return host === 'localhost' || host === '127.0.0.1' 
-    ? 'http://localhost:5000/api'
-    : `http://${host}:5000/api`;
+  const protocol = window.location.protocol;
+  
+  // En Docker, el frontend está en puerto 5173 y backend en 5000
+  // En desarrollo local con HTTPS, backend está en puerto 3001
+  let port = '5000'; // Default para Docker
+  
+  // Si detectamos HTTPS o estamos en puerto 5174 (dev HTTPS), usar 3001
+  if (protocol === 'https:' || window.location.port === '5174') {
+    port = '3001';
+  }
+  
+  return `${protocol}//${host}:${port}/api`;
 };
 
 const API_URL = getApiUrl();
@@ -16,17 +26,55 @@ const api = axios.create({
   baseURL: API_URL,
   headers: {
     'Content-Type': 'application/json'
-  }
+  },
+  withCredentials: true  // Habilitar cookies de sesión
 });
 
-// Interceptor para añadir token
-api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('adminToken');
+// Interceptor para añadir token y manejar renovación automática
+api.interceptors.request.use(async (config) => {
+  let token = tokenService.getAccessToken();
+  
+  // Si el token está expirado, renovarlo automáticamente
+  if (token && tokenService.isTokenExpired(token)) {
+    console.log('⚠️ Token expirado, renovando automáticamente...');
+    token = await tokenService.refreshAccessToken();
+  }
+  
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
   return config;
 });
+
+// Interceptor para manejar respuestas 401
+api.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    const originalRequest = error.config;
+    
+    // Si recibimos 401 y no hemos reintentado ya
+    if (error.response?.status === 401 && !originalRequest._retry) {
+      originalRequest._retry = true;
+      
+      try {
+        console.log('🔄 Token rechazado, intentando renovar...');
+        const newToken = await tokenService.refreshAccessToken();
+        
+        if (newToken) {
+          originalRequest.headers.Authorization = `Bearer ${newToken}`;
+          return axios(originalRequest);
+        }
+      } catch (refreshError) {
+        console.error('❌ Error renovando token:', refreshError);
+        tokenService.clearTokens();
+        window.location.href = '/admin/login';
+        return Promise.reject(refreshError);
+      }
+    }
+    
+    return Promise.reject(error);
+  }
+);
 
 // Admin endpoints
 export const adminAPI = {

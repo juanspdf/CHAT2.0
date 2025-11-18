@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { roomAPI } from '../services/api';
+import tokenService from '../services/tokenService';
+import AdminAlerts from '../components/AdminAlerts';
 import '../styles/Dashboard.css';
 
 function AdminDashboard() {
@@ -19,7 +21,7 @@ function AdminDashboard() {
   const username = localStorage.getItem('adminUsername');
 
   useEffect(() => {
-    const token = localStorage.getItem('adminToken');
+    const token = tokenService.getAccessToken();
     if (!token) {
       navigate('/admin/login');
       return;
@@ -60,10 +62,8 @@ function AdminDashboard() {
     }
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem('adminToken');
-    localStorage.removeItem('adminUsername');
-    navigate('/admin/login');
+  const handleLogout = async () => {
+    await tokenService.logout();
   };
 
   const copyToClipboard = (text) => {
@@ -74,6 +74,9 @@ function AdminDashboard() {
 
   return (
     <div className="container dashboard-container">
+      {/* Sistema de alertas flotante */}
+      <AdminAlerts />
+      
       <div className="card">
         <div className="dashboard-header">
           <div>

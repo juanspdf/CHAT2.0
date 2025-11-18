@@ -22,6 +22,17 @@ function Chat() {
   const currentUser = JSON.parse(localStorage.getItem('currentRoom') || '{}');
   const { roomCode, pin, nickname } = currentUser;
 
+  // Debug: Verificar que el nickname no sea un hash
+  useEffect(() => {
+    if (nickname && nickname.length === 8 && /^[a-f0-9]+$/.test(nickname)) {
+      console.error('⚠️ ADVERTENCIA: El nickname parece ser un hash:', nickname);
+      console.log('🔧 Limpiando localStorage corrupto...');
+      localStorage.removeItem('currentRoom');
+      alert('Tu sesión se corrompió. Por favor, vuelve a unirte a la sala.');
+      navigate('/join');
+    }
+  }, [nickname, navigate]);
+
   useEffect(() => {
     if (!roomCode || !pin || !nickname) {
       navigate('/join');
@@ -40,7 +51,10 @@ function Chat() {
 
     // Event listeners
     const handleJoinedRoom = (data) => {
-      console.log('Unido a la sala:', data);
+      console.log('✅ Unido a la sala:', data);
+      console.log('👤 Mi nickname (localStorage):', nickname);
+      console.log('👥 Usuarios conectados:', data.users);
+      
       setRoomInfo(data);
       setUsers(data.users);
       setConnected(true);
@@ -75,19 +89,22 @@ function Chat() {
 
     const handleUserJoined = (data) => {
       setUsers(data.users);
-      // Mensaje del sistema
+      // Mensaje del sistema con nickname hasheado
+      const displayName = data.users.find(u => u.nickname === data.nickname)?.displayName || data.nickname;
       setMessages(prev => [...prev, {
         type: 'SYSTEM',
-        content: `${data.nickname} se unió a la sala`,
+        content: `${displayName} se unió a la sala`,
         createdAt: new Date()
       }]);
     };
 
     const handleUserLeft = (data) => {
       setUsers(data.users);
+      // Mostrar nickname hasheado en mensaje de sistema
+      const displayName = data.displayName || data.nicknameHash || data.nickname;
       setMessages(prev => [...prev, {
         type: 'SYSTEM',
-        content: `${data.nickname} dejó la sala`,
+        content: `${displayName} dejó la sala`,
         createdAt: new Date()
       }]);
     };
@@ -173,17 +190,42 @@ function Chat() {
     }
 
     const isOwnMessage = msg.nickname === nickname;
+    
+    // Debug logs simplificados
+    console.log(`📨 [${msg.content?.substring(0, 15)}...] msgNick="${msg.nickname}" | myNick="${nickname}" | ¿EsMío? ${isOwnMessage}`);
+    
+    // Mostrar nickname: 
+    // - Si es mensaje propio: SIEMPRE mostrar el nickname real de localStorage
+    // - Si es de otro: mostrar hash de la lista de usuarios
+    let displayNickname;
+    if (isOwnMessage) {
+      displayNickname = nickname; // Nickname real desde localStorage
+      console.log(`✅ ES MI MENSAJE - Mostrando: "${displayNickname}"`);
+    } else {
+      // Para otros usuarios, buscar su hash en la lista de usuarios conectados
+      const user = users.find(u => u.nickname === msg.nickname);
+      // Si no está en la lista (desconectado), mostrar solo el hash o nickname del mensaje
+      displayNickname = user?.displayName || user?.nicknameHash || msg.nickname;
+      console.log(`👤 Es de otro usuario - Mostrando: "${displayNickname}" (original: "${msg.nickname}")`);
+    }
+    
+    console.log(`🎯 FINAL displayNickname para "${msg.content?.substring(0, 10)}": "${displayNickname}"`);
 
     if (msg.type === 'FILE') {
       const isImage = msg.fileMimeType?.startsWith('image/');
       const isVideo = msg.fileMimeType?.startsWith('video/');
       const isAudio = msg.fileMimeType?.startsWith('audio/');
-      const fileUrl = `http://localhost:5000${msg.fileUrl}`;
+      
+      // Construir URL dinámica del archivo
+      const protocol = window.location.protocol;
+      const host = window.location.hostname;
+      const port = host === 'localhost' || host === '127.0.0.1' ? '3001' : '3001';
+      const fileUrl = `${protocol}//${host}:${port}${msg.fileUrl}`;
 
       return (
         <div key={msg.messageId || index} className={`message ${isOwnMessage ? 'message-own' : 'message-other'}`}>
           <div className="message-header">
-            <strong>{msg.nickname}</strong>
+            <strong>{displayNickname}</strong>
             <span className="message-time">{formatDate(msg.createdAt)}</span>
           </div>
           
@@ -237,7 +279,7 @@ function Chat() {
     return (
       <div key={msg.messageId || index} className={`message ${isOwnMessage ? 'message-own' : 'message-other'}`}>
         <div className="message-header">
-          <strong>{msg.nickname}</strong>
+          <strong>{displayNickname}</strong>
           <span className="message-time">{formatDate(msg.createdAt)}</span>
         </div>
         <div className="message-content">
@@ -268,13 +310,19 @@ function Chat() {
         <div className="chat-sidebar">
           <h3>Usuarios ({users.length})</h3>
           <ul className="users-list">
-            {users.map((user, index) => (
-              <li key={index} className={user.nickname === nickname ? 'user-own' : ''}>
-                <span className="user-status">●</span>
-                {user.nickname}
-                {user.nickname === nickname && ' (tú)'}
-              </li>
-            ))}
+            {users.map((user, index) => {
+              // El usuario actual siempre ve su nickname real
+              const isCurrentUser = user.nickname === nickname || user.nicknameHash === nickname;
+              const displayText = isCurrentUser ? nickname : (user.displayName || user.nicknameHash || user.nickname);
+              
+              return (
+                <li key={index} className={isCurrentUser ? 'user-own' : ''}>
+                  <span className="user-status">●</span>
+                  {displayText}
+                  {isCurrentUser && ' (tú)'}
+                </li>
+              );
+            })}
           </ul>
         </div>
 

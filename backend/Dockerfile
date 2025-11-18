@@ -1,8 +1,8 @@
 # Backend Dockerfile
 FROM node:18-alpine
 
-# Instalar dependencias del sistema necesarias para compilar módulos nativos
-RUN apk add --no-cache python3 make g++
+# Instalar dependencias del sistema necesarias para compilar módulos nativos y health checks
+RUN apk add --no-cache python3 make g++ curl
 
 # Crear directorio de trabajo
 WORKDIR /app
@@ -16,11 +16,11 @@ RUN npm ci --only=production && npm rebuild bcrypt --build-from-source
 # Copiar código fuente
 COPY . .
 
-# Crear directorio para uploads
-RUN mkdir -p uploads
+# Crear directorios
+RUN mkdir -p uploads certs
 
-# Exponer puerto
-EXPOSE 5000
+# Exponer puertos (HTTP y HTTPS)
+EXPOSE 5000 3001
 
 # Variables de entorno por defecto
 ENV NODE_ENV=production

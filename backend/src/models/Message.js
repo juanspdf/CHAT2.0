@@ -33,6 +33,39 @@ const messageSchema = new mongoose.Schema({
     type: Number,
     default: null
   },
+  // Cifrado y seguridad
+  encrypted: {
+    type: Boolean,
+    default: false
+  },
+  encryptionTag: {
+    type: String,
+    default: null
+  },
+  contentHash: {
+    type: String,
+    default: null
+  },
+  signature: {
+    type: String,
+    default: null
+  },
+  // Análisis de esteganografía (para archivos)
+  steganographyAnalysis: {
+    verdict: {
+      type: String,
+      enum: ['APROBADO', 'ADVERTENCIA', 'ALERTA', 'RECHAZADO', null],
+      default: null
+    },
+    riskScore: {
+      type: Number,
+      default: null
+    },
+    analysisTime: {
+      type: Number,
+      default: null
+    }
+  },
   createdAt: {
     type: Date,
     default: Date.now

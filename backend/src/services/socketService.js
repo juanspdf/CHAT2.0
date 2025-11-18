@@ -1,9 +1,12 @@
 const bcrypt = require('bcrypt');
+const crypto = require('crypto');
 const Room = require('../models/Room');
 const Message = require('../models/Message');
 const Session = require('../models/Session');
 const { validateNickname, sanitizeText } = require('../utils/validators');
 const redisService = require('./redisService');
+const FingerprintService = require('./fingerprintService');
+const workerManager = require('./workerManager');
 
 class SocketService {
   constructor(io) {
@@ -41,14 +44,15 @@ class SocketService {
     try {
       const { roomCode, pin, nickname } = data;
 
-      // Obtener la IP real del cliente
-      const clientIP = socket.handshake.headers['x-forwarded-for']?.split(',')[0] || 
-                       socket.handshake.address;
+      // Generar fingerprint completo del dispositivo
+      const fingerprint = FingerprintService.generateSessionFingerprint(socket);
+      const { ipAddress, userAgent, userAgentHash, deviceId, deviceFingerprint } = fingerprint;
       
-      // Generar deviceId basado SOLO en IP
-      const deviceId = `device_${clientIP}`;
-      
-      console.log(`🔍 Cliente conectando desde IP: ${clientIP}, DeviceId: ${deviceId}`);
+      console.log(`🔍 Cliente conectando:`, {
+        ip: ipAddress,
+        deviceId,
+        fingerprint: deviceFingerprint.substring(0, 16) + '...'
+      });
 
       // Validaciones básicas
       if (!roomCode || !pin || !nickname) {
@@ -68,8 +72,10 @@ class SocketService {
         return;
       }
 
-      // Buscar sala
-      const room = await Room.findOne({ roomCode, status: 'ACTIVE' });
+      // Hashear roomCode para buscar en BD
+      const encryptionService = require('./encryptionService');
+      const roomCodeHash = encryptionService.hashRoomCode(roomCode);
+      const room = await Room.findOne({ roomCodeHash, status: 'ACTIVE' });
       if (!room) {
         socket.emit('error', {
           errorCode: 'ROOM_NOT_FOUND',
@@ -88,27 +94,29 @@ class SocketService {
         return;
       }
 
-      // VALIDACIÓN CRÍTICA: Verificar que esta IP no tenga sesiones activas
+      // VALIDACIÓN CRÍTICA: Verificar que este dispositivo no tenga sesiones activas
       // Primero verificar en Redis (cache rápido)
-      let existingSession = await redisService.getActiveSession(clientIP);
+      let existingSession = await redisService.getActiveSession(deviceFingerprint);
       
       if (existingSession) {
         console.log('🔍 Sesión encontrada en Redis cache');
       } else {
         // Si no está en Redis, buscar en MongoDB
         existingSession = await Session.findOne({
-          deviceId,
+          deviceFingerprint,
           isActive: true
         });
         
         // Si se encontró en MongoDB, guardar en Redis para próximas consultas
         if (existingSession) {
           console.log('🔍 Sesión encontrada en MongoDB, guardando en Redis cache');
-          await redisService.setActiveSession(clientIP, {
+          await redisService.setActiveSession(deviceFingerprint, {
             roomId: existingSession.roomId.toString(),
             nickname: existingSession.nickname,
+            nicknameHash: existingSession.nicknameHash,
             socketId: existingSession.socketId,
-            deviceId: existingSession.deviceId
+            deviceId: existingSession.deviceId,
+            deviceFingerprint: existingSession.deviceFingerprint
           }, parseInt(process.env.REDIS_SESSION_TTL) || 1800);
         }
       }
@@ -136,15 +144,20 @@ class SocketService {
           // Socket huérfano - limpiar y permitir nueva sesión
           console.log('🧹 Limpiando sesión huérfana');
           await Session.findByIdAndUpdate(existingSession._id, { isActive: false });
-          await redisService.removeSession(clientIP);
+          await redisService.removeSession(deviceFingerprint);
           
           console.log('🆕 Creando nueva sesión');
+          const nicknameHash = FingerprintService.hashNickname(nickname.trim(), room._id.toString());
           const newSession = await Session.findOneAndUpdate(
             { socketId: socket.id },
             {
               roomId: room._id,
               deviceId,
+              deviceFingerprint,
+              ipAddress,
+              userAgentHash,
               nickname: nickname.trim(),
+              nicknameHash,
               socketId: socket.id,
               isActive: true,
               lastActivityAt: new Date()
@@ -153,11 +166,13 @@ class SocketService {
           );
           
           // Guardar en Redis
-          await redisService.setActiveSession(clientIP, {
+          await redisService.setActiveSession(deviceFingerprint, {
             roomId: room._id.toString(),
             nickname: nickname.trim(),
+            nicknameHash,
             socketId: socket.id,
-            deviceId
+            deviceId,
+            deviceFingerprint
           }, parseInt(process.env.REDIS_SESSION_TTL) || 1800);
         } else {
           // Socket existe - es un refresh de la misma pestaña
@@ -175,7 +190,7 @@ class SocketService {
             await Session.findByIdAndUpdate(existingSession._id, {
               lastActivityAt: new Date()
             });
-            await redisService.refreshSession(clientIP, parseInt(process.env.REDIS_SESSION_TTL) || 1800);
+            await redisService.refreshSession(deviceFingerprint, parseInt(process.env.REDIS_SESSION_TTL) || 1800);
           } else {
             // Socket diferente de la MISMA pestaña (refresh) - actualizar socket
             console.log('🔄 Refresh detectado - actualizando socket');
@@ -185,23 +200,30 @@ class SocketService {
             });
             
             // Actualizar en Redis
-            await redisService.setActiveSession(clientIP, {
+            await redisService.setActiveSession(deviceFingerprint, {
               roomId: existingSession.roomId.toString(),
               nickname: existingSession.nickname,
+              nicknameHash: existingSession.nicknameHash,
               socketId: socket.id,
-              deviceId
+              deviceId,
+              deviceFingerprint
             }, parseInt(process.env.REDIS_SESSION_TTL) || 1800);
           }
         }
       } else {
         // No hay sesión existente - crear nueva usando upsert para evitar duplicados
         console.log('🆕 Creando nueva sesión');
+        const nicknameHash = FingerprintService.hashNickname(nickname.trim(), room._id.toString());
         await Session.findOneAndUpdate(
           { socketId: socket.id }, // Buscar por socketId
           {
             roomId: room._id,
             deviceId,
+            deviceFingerprint,
+            ipAddress,
+            userAgentHash,
             nickname: nickname.trim(),
+            nicknameHash,
             socketId: socket.id,
             isActive: true,
             lastActivityAt: new Date()
@@ -210,11 +232,13 @@ class SocketService {
         );
         
         // Guardar en Redis
-        await redisService.setActiveSession(clientIP, {
+        await redisService.setActiveSession(deviceFingerprint, {
           roomId: room._id.toString(),
           nickname: nickname.trim(),
+          nicknameHash,
           socketId: socket.id,
-          deviceId
+          deviceId,
+          deviceFingerprint
         }, parseInt(process.env.REDIS_SESSION_TTL) || 1800);
       }
 
@@ -251,8 +275,11 @@ class SocketService {
       });
 
       // Notificar a los demás usuarios
+      const currentUser = connectedUsers.find(u => u.nickname === nickname.trim());
       socket.to(roomCode).emit('user_joined', {
         nickname: nickname.trim(),
+        displayName: currentUser?.displayName,
+        nicknameHash: currentUser?.nicknameHash,
         users: connectedUsers
       });
 
@@ -292,7 +319,11 @@ class SocketService {
         return;
       }
 
-      if (session.roomId.roomCode !== roomCode) {
+      // Verificar que el roomCode coincida con el hash de la sala
+      const encryptionService = require('./encryptionService');
+      const roomCodeHash = encryptionService.hashRoomCode(roomCode);
+      
+      if (session.roomId.roomCodeHash !== roomCodeHash) {
         socket.emit('error', {
           errorCode: 'WRONG_ROOM',
           message: 'No estás en esta sala'
@@ -303,12 +334,60 @@ class SocketService {
       // Sanitizar contenido
       const sanitizedContent = sanitizeText(content);
 
+      // Obtener sala para claves de cifrado
+      const room = await Room.findById(session.roomId._id);
+      if (!room) {
+        socket.emit('error', {
+          errorCode: 'ROOM_NOT_FOUND',
+          message: 'Sala no encontrada'
+        });
+        return;
+      }
+
+      // Preparar datos del mensaje
+      let messageContent = sanitizedContent;
+      let encrypted = false;
+      let encryptionTag = null;
+
+      // Cifrar el mensaje solo si la sala tiene claves de cifrado
+      if (room.encryptionKey && room.encryptionIV) {
+        try {
+          const encryptionResult = await workerManager.encrypt(
+            sanitizedContent,
+            room.encryptionKey,
+            room.encryptionIV
+          );
+          messageContent = encryptionResult.encrypted;
+          encryptionTag = encryptionResult.tag;
+          encrypted = true;
+        } catch (error) {
+          console.error('Error al cifrar mensaje:', error);
+          // Continuar sin cifrado si falla
+        }
+      }
+
+      // Calcular hash del contenido original
+      const contentHash = crypto
+        .createHash('sha256')
+        .update(sanitizedContent)
+        .digest('hex');
+
+      // Generar firma del mensaje
+      const signature = crypto
+        .createHash('sha256')
+        .update(`${session.nickname}:${sanitizedContent}:${Date.now()}`)
+        .digest('hex');
+
       // Crear mensaje en BD
       const message = new Message({
         roomId: session.roomId._id,
         senderNickname: session.nickname,
         type: 'TEXT',
-        content: sanitizedContent
+        content: messageContent,
+        encrypted: encrypted,
+        encryptionTag: encryptionTag,
+        contentHash: contentHash,
+        signature: signature
       });
 
       await message.save();
@@ -364,6 +443,8 @@ class SocketService {
         // Notificar a los demás usuarios
         socket.to(roomCode).emit('user_left', {
           nickname,
+          displayName: session.nicknameHash,
+          nicknameHash: session.nicknameHash,
           users: connectedUsers
         });
 
@@ -386,7 +467,11 @@ class SocketService {
         isActive: true
       }).populate('roomId');
 
-      if (!session || session.roomId.roomCode !== roomCode) {
+      // Verificar que el roomCode coincida con el hash de la sala
+      const encryptionService = require('./encryptionService');
+      const roomCodeHash = encryptionService.hashRoomCode(roomCode);
+
+      if (!session || session.roomId.roomCodeHash !== roomCodeHash) {
         socket.emit('error', {
           errorCode: 'NOT_IN_ROOM',
           message: 'No estás en esta sala'
@@ -399,18 +484,49 @@ class SocketService {
         .sort({ createdAt: -1 })
         .limit(limit);
 
-      socket.emit('messages_history', {
-        roomCode,
-        messages: messages.reverse().map(msg => ({
+      // Obtener sala para desencriptar
+      const room = await Room.findById(session.roomId._id);
+
+      // Desencriptar mensajes si están encriptados
+      const workerManager = require('./workerManager');
+      const decryptedMessages = await Promise.all(messages.map(async (msg) => {
+        let content = msg.content;
+        
+        // Desencriptar si el mensaje está encriptado
+        if (msg.encrypted && room.encryptionKey && room.encryptionIV) {
+          try {
+            console.log(`🔓 Desencriptando mensaje ID: ${msg._id}`);
+            content = await workerManager.decrypt(
+              msg.content,
+              room.encryptionKey,
+              room.encryptionIV,
+              msg.encryptionTag
+            );
+            console.log(`✅ Desencriptado exitoso: "${content.substring(0, 20)}..."`);
+          } catch (error) {
+            console.error('❌ Error al desencriptar mensaje ID', msg._id, ':', error.message);
+            // Si falla, mantener el contenido encriptado
+            console.log('⚠️ Usando contenido encriptado como fallback');
+          }
+        } else if (msg.encrypted) {
+          console.warn(`⚠️ Mensaje ${msg._id} está marcado como encriptado pero faltan claves`);
+        }
+
+        return {
           messageId: msg._id,
           nickname: msg.senderNickname,
           type: msg.type,
-          content: msg.content,
+          content: content,
           fileUrl: msg.fileUrl,
           fileMimeType: msg.fileMimeType,
           fileSizeBytes: msg.fileSizeBytes,
           createdAt: msg.createdAt
-        }))
+        };
+      }));
+
+      socket.emit('messages_history', {
+        roomCode,
+        messages: decryptedMessages.reverse()
       });
     } catch (error) {
       console.error('Error en get_messages:', error);
@@ -425,9 +541,13 @@ class SocketService {
     const sessions = await Session.find({
       roomId,
       isActive: true
-    }).select('nickname');
+    }).select('nickname nicknameHash');
 
-    return sessions.map(s => ({ nickname: s.nickname }));
+    return sessions.map(s => ({ 
+      nickname: s.nickname, // Solo para uso interno del servidor
+      nicknameHash: s.nicknameHash, // Para mostrar en frontend (privacidad)
+      displayName: s.nicknameHash // Alias para frontend
+    }));
   }
 
   // Método para broadcast de archivo subido (llamado desde el endpoint REST)
@@ -446,4 +566,10 @@ class SocketService {
   }
 }
 
+// Export class for instantiation and methods for testing
 module.exports = SocketService;
+module.exports.handleJoinRoom = SocketService.prototype.handleJoinRoom;
+module.exports.handleSendMessage = SocketService.prototype.handleSendMessage;
+module.exports.handleMessage = SocketService.prototype.handleSendMessage;
+module.exports.handleDisconnect = SocketService.prototype.handleDisconnect;
+module.exports.getConnectedUsers = SocketService.prototype.getConnectedUsers;

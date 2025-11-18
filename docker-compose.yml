@@ -43,22 +43,25 @@ services:
     container_name: chat-backend
     restart: unless-stopped
     ports:
-      - "5000:5000"
+      - "3001:3001"
     environment:
       NODE_ENV: production
-      PORT: 5000
+      USE_HTTPS: "true"
+      PORT: 3001
       MONGODB_URI: mongodb://mongodb:27017/chat-system
       REDIS_HOST: redis
       REDIS_PORT: 6379
       REDIS_PASSWORD: ""
       REDIS_SESSION_TTL: 1800
       JWT_SECRET: ${JWT_SECRET:-super-secret-jwt-key-change-in-production}
-      JWT_EXPIRES_IN: 24h
-      FRONTEND_URL: http://localhost:5173
+      JWT_EXPIRES_IN: 1h
+      JWT_REFRESH_EXPIRES_IN: 7d
+      FRONTEND_URL: https://localhost:5174
       MAX_FILE_SIZE_MB: 10
       SESSION_TIMEOUT_MINUTES: 30
     volumes:
       - ./backend/uploads:/app/uploads
+      - ./backend/certs:/app/certs:ro
     depends_on:
       mongodb:
         condition: service_healthy
@@ -67,7 +70,7 @@ services:
     networks:
       - chat-network
     healthcheck:
-      test: ["CMD", "node", "-e", "require('http').get('http://localhost:5000/api/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"]
+      test: ["CMD", "node", "-e", "process.env.NODE_TLS_REJECT_UNAUTHORIZED='0'; require('https').get('https://localhost:3001/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"]
       interval: 30s
       timeout: 3s
       retries: 3
@@ -80,13 +83,16 @@ services:
     container_name: chat-frontend
     restart: unless-stopped
     ports:
+      - "5174:443"
       - "5173:80"
+    volumes:
+      - ./backend/certs:/etc/nginx/certs:ro
     depends_on:
       - backend
     networks:
       - chat-network
     healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/"]
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "--no-check-certificate", "https://localhost/"]
       interval: 30s
       timeout: 3s
       retries: 3

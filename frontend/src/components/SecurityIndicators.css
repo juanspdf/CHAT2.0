@@ -1,0 +1,274 @@
+/* Security Indicators Styles */
+
+.security-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+  margin: 2px;
+}
+
+.badge-icon {
+  font-size: 14px;
+}
+
+.badge-label {
+  font-weight: 600;
+}
+
+.badge-score {
+  margin-left: 4px;
+  opacity: 0.8;
+  font-size: 11px;
+}
+
+/* Approved - Verde */
+.security-badge.approved {
+  background-color: #d1fae5;
+  color: #065f46;
+  border: 1px solid #10b981;
+}
+
+/* Warning - Amarillo */
+.security-badge.warning {
+  background-color: #fef3c7;
+  color: #92400e;
+  border: 1px solid #f59e0b;
+}
+
+/* Alert - Naranja */
+.security-badge.alert {
+  background-color: #fee2e2;
+  color: #991b1b;
+  border: 1px solid #ef4444;
+}
+
+/* Rejected - Rojo */
+.security-badge.rejected {
+  background-color: #fecaca;
+  color: #7f1d1d;
+  border: 1px solid #dc2626;
+}
+
+/* Unknown - Gris */
+.security-badge.unknown {
+  background-color: #f3f4f6;
+  color: #374151;
+  border: 1px solid #9ca3af;
+}
+
+/* Encrypted - Azul */
+.security-badge.encrypted {
+  background-color: #dbeafe;
+  color: #1e40af;
+  border: 1px solid #3b82f6;
+}
+
+/* 2FA - Violeta */
+.security-badge.two-factor {
+  background-color: #ede9fe;
+  color: #5b21b6;
+  border: 1px solid #8b5cf6;
+}
+
+/* Integrity Valid - Verde oscuro */
+.security-badge.integrity-valid {
+  background-color: #d1fae5;
+  color: #064e3b;
+  border: 1px solid #059669;
+}
+
+/* Integrity Invalid - Rojo oscuro */
+.security-badge.integrity-invalid {
+  background-color: #fee2e2;
+  color: #7f1d1d;
+  border: 1px solid #b91c1c;
+}
+
+/* File Security Panel */
+.file-security-panel {
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 12px;
+  margin: 8px 0;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.security-panel-header h4 {
+  margin: 0 0 8px 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: #374151;
+}
+
+.security-panel-body {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 8px 0;
+}
+
+.security-panel-footer {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid #e5e7eb;
+}
+
+.analysis-time {
+  font-size: 11px;
+  color: #6b7280;
+  font-style: italic;
+}
+
+/* User Privacy Badge */
+.user-privacy-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border-radius: 16px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.user-avatar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  background: rgba(255, 255, 255, 0.3);
+  border-radius: 50%;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.user-hash {
+  font-family: 'Courier New', monospace;
+  font-size: 11px;
+  opacity: 0.9;
+}
+
+/* Security Alerts */
+.security-alert {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  border-radius: 8px;
+  margin: 12px 0;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  animation: slideIn 0.3s ease-out;
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateY(-10px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.alert-icon {
+  font-size: 20px;
+  flex-shrink: 0;
+}
+
+.alert-message {
+  flex: 1;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.alert-dismiss {
+  background: none;
+  border: none;
+  font-size: 24px;
+  cursor: pointer;
+  opacity: 0.6;
+  transition: opacity 0.2s;
+  padding: 0;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.alert-dismiss:hover {
+  opacity: 1;
+}
+
+/* Alert Types */
+.alert-error {
+  background-color: #fee2e2;
+  color: #991b1b;
+  border: 1px solid #ef4444;
+}
+
+.alert-warning {
+  background-color: #fef3c7;
+  color: #92400e;
+  border: 1px solid #f59e0b;
+}
+
+.alert-info {
+  background-color: #dbeafe;
+  color: #1e40af;
+  border: 1px solid #3b82f6;
+}
+
+.alert-success {
+  background-color: #d1fae5;
+  color: #065f46;
+  border: 1px solid #10b981;
+}
+
+/* Responsive */
+@media (max-width: 640px) {
+  .security-badge {
+    font-size: 11px;
+    padding: 3px 6px;
+  }
+
+  .badge-icon {
+    font-size: 12px;
+  }
+
+  .file-security-panel {
+    padding: 10px;
+  }
+
+  .security-alert {
+    padding: 10px 12px;
+  }
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+  .file-security-panel {
+    background: #1f2937;
+    border-color: #374151;
+  }
+
+  .security-panel-header h4 {
+    color: #f9fafb;
+  }
+
+  .security-panel-footer {
+    border-top-color: #374151;
+  }
+
+  .analysis-time {
+    color: #9ca3af;
+  }
+}

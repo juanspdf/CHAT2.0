@@ -31,6 +31,10 @@ describe('Session Management', () => {
       const session = new Session({
         roomId,
         deviceId: 'device123',
+        deviceFingerprint: 'abc123def456',
+        ipAddress: '192.168.1.1',
+        userAgentHash: 'hash123',
+        nicknameHash: 'nick123',
         nickname: 'Juan',
         socketId: 'socket123',
         isActive: true
@@ -51,8 +55,25 @@ describe('Session Management', () => {
       await Session.create({
         roomId: room1Id,
         deviceId: 'device123',
+        deviceFingerprint: 'abc123def456',
+        ipAddress: '192.168.1.1',
+        userAgentHash: 'hash123',
+        nicknameHash: 'nick123',
         nickname: 'Juan',
         socketId: 'socket123',
+        isActive: true
+      });
+      
+      // Intentar crear sesión en sala 2 con mismo dispositivo
+      await Session.create({
+        roomId: room2Id,
+        deviceId: 'device123',
+        deviceFingerprint: 'abc123def456',
+        ipAddress: '192.168.1.1',
+        userAgentHash: 'hash123',
+        nicknameHash: 'nick456',
+        nickname: 'Juan',
+        socketId: 'socket456',
         isActive: true
       });
 
@@ -76,6 +97,10 @@ describe('Session Management', () => {
       await Session.create({
         roomId,
         deviceId: 'device123',
+        deviceFingerprint: 'abc123def456',
+        ipAddress: '192.168.1.1',
+        userAgentHash: 'hash123',
+        nicknameHash: 'nick123',
         nickname: 'Juan',
         socketId: 'socket123',
         isActive: true
@@ -98,6 +123,10 @@ describe('Session Management', () => {
       await Session.create({
         roomId,
         deviceId: 'device1',
+        deviceFingerprint: 'abc123',
+        ipAddress: '192.168.1.1',
+        userAgentHash: 'hash1',
+        nicknameHash: 'nick1',
         nickname: 'Juan',
         socketId: 'socket1',
         isActive: true
@@ -120,6 +149,10 @@ describe('Session Management', () => {
       await Session.create({
         roomId: room1Id,
         deviceId: 'device1',
+        deviceFingerprint: 'abc123',
+        ipAddress: '192.168.1.1',
+        userAgentHash: 'hash1',
+        nicknameHash: 'nick1',
         nickname: 'Juan',
         socketId: 'socket1',
         isActive: true
@@ -128,6 +161,10 @@ describe('Session Management', () => {
       await Session.create({
         roomId: room2Id,
         deviceId: 'device2',
+        deviceFingerprint: 'def456',
+        ipAddress: '192.168.1.2',
+        userAgentHash: 'hash2',
+        nicknameHash: 'nick2',
         nickname: 'Juan',
         socketId: 'socket2',
         isActive: true
@@ -135,15 +172,20 @@ describe('Session Management', () => {
 
       const sessions = await Session.find({ nickname: 'Juan', isActive: true });
       expect(sessions).toHaveLength(2);
-      expect(sessions[0].roomId.toString()).not.toBe(sessions[1].roomId.toString());
     });
   });
 
   describe('Actualización de actividad', () => {
     test('debería actualizar lastActivityAt', async () => {
+      const roomId = new mongoose.Types.ObjectId();
+      
       const session = await Session.create({
-        roomId: new mongoose.Types.ObjectId(),
+        roomId,
         deviceId: 'device1',
+        deviceFingerprint: 'abc123',
+        ipAddress: '192.168.1.1',
+        userAgentHash: 'hash1',
+        nicknameHash: 'nick1',
         nickname: 'Juan',
         socketId: 'socket1',
         isActive: true

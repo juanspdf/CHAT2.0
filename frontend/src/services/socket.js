@@ -3,9 +3,18 @@ import { io } from 'socket.io-client';
 // Obtener la URL del socket dinámicamente
 const getSocketUrl = () => {
   const host = window.location.hostname;
-  return host === 'localhost' || host === '127.0.0.1'
-    ? 'http://localhost:5000'
-    : `http://${host}:5000`;
+  const protocol = window.location.protocol === 'https:' ? 'https:' : 'http:';
+  
+  // En Docker, el frontend está en puerto 5173 y backend en 5000
+  // En desarrollo local con HTTPS, backend está en puerto 3001
+  let port = '5000'; // Default para Docker
+  
+  // Si detectamos HTTPS o estamos en puerto 5174 (dev HTTPS), usar 3001
+  if (protocol === 'https:' || window.location.port === '5174') {
+    port = '3001';
+  }
+  
+  return `${protocol}//${host}:${port}`;
 };
 
 const SOCKET_URL = getSocketUrl();
